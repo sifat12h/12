@@ -7,7 +7,7 @@ module.exports = {
   config: {
     name: "duck",
     version: "1.0.0",
-    author: "Arijit",
+    author: "ARijit",
     countDown: 5,
     role: 0,
     shortDescription: "Turn someone into a Duck 🦆",
