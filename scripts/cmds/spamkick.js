@@ -3,7 +3,7 @@ module.exports.config = {
   aliases:["spk"],
   version: "1.0.0",
   role: 1, 
-  author: "Dipto",
+  author: "DiPto",
   usePrefix: true,
   description: { 
       en: "Automatically kick a user who spams messages in a group chat"
