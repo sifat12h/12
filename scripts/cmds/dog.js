@@ -1,34 +1,45 @@
-const axios = require('axios');
+const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
 module.exports = {
   config: {
     name: "dog",
-    aliases: ["dog"],
+    author: "Saimx69x",
+    category: "image",
     version: "1.0",
-    author: "JUNMAR",
-    countDown: 5,
     role: 0,
-    shortDescription: "dog images",
-    longDescription: "dog images",
-    category: "fun",
-    guide: {
-      en: "{pn}"
-    },
+    shortDescription: { en: "🐶 Send a random dog image" },
+    longDescription: { en: "Fetches a random dog image." },
+    guide: { en: "{p}{n} — Shows a random dog image" }
   },
 
-  onStart: async function ({ message, args, api, event }) {
-  const axios = require('axios');
-  const request = require('request');
-  const fs = require("fs");
-  axios.get('https://random.dog/woof.json').then(res => {
-  let ext = res.data.url.substring(res.data.url.lastIndexOf(".") + 1);
+  onStart: async function({ api, event }) {
+    try {
+      const apiUrl = "https://xsaim8x-xxx-api.onrender.com/api/dog"; // তোমার API
 
-  let callback = function () {
-          api.sendMessage({
-            attachment: fs.createReadStream(__dirname + `/assets/dog2.${ext}`)
-          }, event.threadID, () => fs.unlinkSync(__dirname + `/assets/dog2.${ext}`), event.messageID);
-        };
-        request(res.data.url).pipe(fs.createWriteStream(__dirname + `/assets/dog2.${ext}`)).on("close", callback);
-      })
+      const response = await axios.get(apiUrl, { responseType: "arraybuffer" });
+      const buffer = Buffer.from(response.data, "binary");
+
+      const tempPath = path.join(__dirname, "dog_temp.jpg");
+      fs.writeFileSync(tempPath, buffer);
+
+      await api.sendMessage(
+        {
+          body: "🐶 Here's a random dog for you!",
+          attachment: fs.createReadStream(tempPath)
+        },
+        event.threadID,
+        () => {
+          
+          fs.unlinkSync(tempPath);
+        },
+        event.messageID
+      );
+
+    } catch (err) {
+      console.error(err);
+      api.sendMessage("❌ Failed to fetch dog image.\n" + err.message, event.threadID, event.messageID);
     }
-    };
+  }
+};
