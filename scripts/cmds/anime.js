@@ -12,7 +12,7 @@ module.exports = {
   onStart: async function ({ api, event, args }) {
     api.setMessageReaction("💫", event.messageID, () => {}, true);
 
-    const API_URL = "https://azadx69x-anime-api.onrender.com/api/anime";
+    const API_URL = "https://azadx69x-anime-api.vercel.app/api/anime";
 
     async function fetchRandomAnime() {
       try {
