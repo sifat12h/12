@@ -37,11 +37,11 @@ module.exports = {
     const level = expToLevel(exp);
 
     if (level < 2) {
-      return message.reply("🚫 এই কমান্ড ব্যবহার করতে Level 2 লাগবে");
+      return message.reply("🚫 এই কমান্ড ব্যবহার করতে tk লাগবে");
     }
 
     if (balance < 100) {
-      return message.reply(`❌ Not enough coins\n💵 আছে: ${balance}\n📝 দরকার: 100`);
+      return message.reply(`❌ Not enough coins\n💵 you have: ${balance}\n📝 দরকার: 100`);
     }
 
     await usersData.set(senderID, { money: balance - 100 });
