@@ -1,47 +1,40 @@
 const fs = require("fs-extra");
 const nullAndUndefined = [undefined, null];
-const leven = require('leven'); // <--- Levenshtein Distance লাইব্রেরি
-
-// const { config } = global.GoatBot;
-// const { utils } = global;
+const leven = require('leven');
 
 function getType(obj) {
 	return Object.prototype.toString.call(obj).slice(8, -1);
 }
 
-// <<< --- NEW: getRole FUNCTION WITH CUSTOM HIERARCHY --- >>>
 function getRole(threadData, senderID) {
-	const config = global.GoatBot.config;
+	const config = global.x69x.config;
 	const adminBot = config.adminBot || [];
 	const developer = config.developer || [];
-    // NEW: Get vipuser list (Assuming vipuser is in config.json for role assignment)
-	const vipuser = config.vipuser || []; 
+	const vipuser = config.vipuser || [];
     
 	if (!senderID)
 		return 0;
 	const adminBox = threadData ? threadData.adminIDs || [] : [];
     
-	// 4. Developer (Highest Rank - needed for Role 4 commands)
-    if (developer.includes(senderID))
-        return 4;
+	// 4. Developer (Highest Rank)
+	if (developer.includes(senderID))
+		return 4;
     
-    // 3. AdminBot (Needed for Role 3 commands)
-    if (adminBot.includes(senderID))
-        return 3; 
+	// 3. AdminBot
+	if (adminBot.includes(senderID))
+		return 3;
     
-    // 2. VIP User (Needed for Role 2 commands)
+	// 2. VIP User
 	if (vipuser.includes(senderID))
-        return 2; 
+		return 2;
 
-    // 1. Group Admin (Needed for Role 1 commands)
-    if (adminBox.includes(senderID))
-        return 1;
+	// 1. Group Admin
+	if (adminBox.includes(senderID))
+		return 1;
     
-    // 0. All Other Users (Lowest Rank)
-    return 0;
+	// 0. All Other Users
+	return 0;
 }
-// <<< --- END: getRole FUNCTION --- >>>
-
 
 function getText(type, reason, time, targetID, lang) {
 	const utils = global.utils;
@@ -66,48 +59,36 @@ function getRoleConfig(utils, command, isGroup, threadData, commandName) {
 	let roleConfig;
 	if (utils.isNumber(command.config.role)) {
 		roleConfig = {
-			onStart: command.config.role
+			x69xStart: command.config.role
 		};
 	}
 	else if (typeof command.config.role == "object" && !Array.isArray(command.config.role)) {
-		if (!command.config.role.onStart)
-			command.config.role.onStart = 0;
+		if (!command.config.role.x69xStart)
+			command.config.role.x69xStart = 0;
 		roleConfig = command.config.role;
 	}
 	else {
 		roleConfig = {
-			onStart: 0
+			x69xStart: 0
 		};
 	}
 
 	if (isGroup)
-		roleConfig.onStart = threadData.data.setRole?.[commandName] ?? roleConfig.onStart;
+		roleConfig.x69xStart = threadData.data.setRole?.[commandName] ?? roleConfig.x69xStart;
 
-	for (const key of ["onChat", "onStart", "onReaction", "onReply"]) {
+	for (const key of ["x69xChat", "x69xStart", "onReaction", "x69xReply"]) {
 		if (roleConfig[key] == undefined)
-			roleConfig[key] = roleConfig.onStart;
+			roleConfig[key] = roleConfig.x69xStart;
 	}
 
 	return roleConfig;
-	// {
-	// 	onChat,
-	// 	onStart,
-	// 	onReaction,
-	// 	onReply
-	// }
 }
 
 function isBannedOrOnlyAdmin(userData, threadData, senderID, threadID, isGroup, commandName, message, lang) {
-	const config = global.GoatBot.config;
-	// ✅ developerOnly, vipOnly যোগ করা হয়েছে
-	const { adminBot, developer, vipuser, hideNotiMessage, developerOnly, vipOnly } = config; 
-	
-	// Group all high roles for global checks
-	const allHighRoles = [...adminBot, ...developer, ...vipuser]; 
-    
-    // ✅ এখানে role বের করে নেওয়া হয়েছে 
-    // কারণ এটি global check এর জন্য দরকার।
-    const role = getRole(threadData, senderID); 
+	const config = global.x69x.config;
+	const { adminBot, developer, vipuser, hideNotiMessage, developerOnly, vipOnly } = config;
+	const allHighRoles = [...adminBot, ...developer, ...vipuser];
+	const role = getRole(threadData, senderID);
 
 	// check if user banned
 	const infoBannedUser = userData.banned;
@@ -118,13 +99,12 @@ function isBannedOrOnlyAdmin(userData, threadData, senderID, threadID, isGroup, 
 		return true;
 	}
 
-	// 1. Check if only Admin Bot (Role 3 and above)
-	// The original code was checking for Bot Admin (Role 3 in new hierarchy)
+	// 1. Check if only Admin Bot
 	if (
 		config.adminOnly.enable == true
-		&& !adminBot.includes(senderID) // Check if the sender is NOT AdminBot (Rank 3)
-		&& !config.developer.includes(senderID) // Check if the sender is NOT Developer (Rank 4)
-		&& !config.vipuser.includes(senderID) // Check if the sender is NOT VIP User (Rank 2)
+		&& !adminBot.includes(senderID)
+		&& !config.developer.includes(senderID)
+		&& !config.vipuser.includes(senderID)
 		&& !config.adminOnly.ignoreCommand.includes(commandName)
 	) {
 		if (hideNotiMessage.adminOnly == false)
@@ -132,23 +112,21 @@ function isBannedOrOnlyAdmin(userData, threadData, senderID, threadID, isGroup, 
 		return true;
 	}
 	
-    // 2. >>> NEW: Check for DeveloperOnly mode (VIP Users only, i.e., Role >= 2)
-    // /devonly on করলে, VIP User (Role 2) বা তার উপরের র্যাঙ্কের ইউজারদের অ্যাক্সেস থাকবে।
+	// 2. Check for DeveloperOnly mode
 	if (
 		(developerOnly?.enable == true)
-		&& role < 2 // Check if the user is less than VIP User
+		&& role < 2
 		&& !(developerOnly?.ignoreCommand || []).includes(commandName)
 	) {
-		if ((hideNotiMessage.developerOnly ?? false) == false) 
-			message.reply(global.utils.getText({ lang, head: "handlerEvents" }, "onlyVipUserGlobal", null, null, null, lang)); 
+		if ((hideNotiMessage.developerOnly ?? false) == false)
+			message.reply(global.utils.getText({ lang, head: "handlerEvents" }, "onlyVipUserGlobal", null, null, null, lang));
 		return true;
 	}
     
-	// 3. >>> NEW: Check for VIPOnly mode (VIP Users only, i.e., Role >= 2)
-	// /viponly on করলেও, VIP User (Role 2) বা তার উপরের র্যাঙ্কের ইউজারদের অ্যাক্সেস থাকবে।
+	// 3. Check for VIPOnly mode
 	if (
 		(vipOnly?.enable == true)
-		&& role < 2 // Check if the user is less than VIP User
+		&& role < 2
 		&& !(vipOnly?.ignoreCommand || []).includes(commandName)
 	) {
 		if ((hideNotiMessage.vipOnly ?? false) == false)
@@ -156,15 +134,13 @@ function isBannedOrOnlyAdmin(userData, threadData, senderID, threadID, isGroup, 
 		return true;
 	}
 
-
-	// ==========    Check Thread    ========== //
+	// ========== Check Thread ========== //
 	if (isGroup == true) {
 		if (
 			threadData.data.onlyAdminBox === true
 			&& !threadData.adminIDs.includes(senderID)
 			&& !(threadData.data.ignoreCommanToOnlyAdminBox || []).includes(commandName)
 		) {
-			// check if only admin box
 			if (!threadData.data.hideNotiMessageOnlyAdminBox)
 				message.reply(getText("onlyAdminBox", null, null, null, lang));
 			return true;
@@ -181,7 +157,6 @@ function isBannedOrOnlyAdmin(userData, threadData, senderID, threadID, isGroup, 
 	}
 	return false;
 }
-
 
 function createGetText2(langCode, pathCustomLang, prefix, command) {
 	const commandType = command.config.countDown ? "command" : "command event";
@@ -205,15 +180,15 @@ function createGetText2(langCode, pathCustomLang, prefix, command) {
 module.exports = function (api, threadModel, userModel, dashBoardModel, globalModel, usersData, threadsData, dashBoardData, globalData) {
 	return async function (event, message) {
 
-		const { utils, client, GoatBot } = global;
+		const { utils, client } = global;
 		const { getPrefix, removeHomeDir, log, getTime } = utils;
-		const { config, configCommands: { envGlobal, envCommands, envEvents } } = GoatBot;
+		const x69x = global.x69x;
+		const { config, configCommands: { envGlobal, envCommands, envEvents } } = x69x;
 		const { autoRefreshThreadInfoFirstTime } = config.database;
 		let { hideNotiMessage = {} } = config;
 
 		const { body, messageID, threadID, isGroup } = event;
 
-		// Check if has threadID
 		if (!threadID)
 			return;
 
@@ -253,7 +228,7 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			envEvents, envGlobal, role,
 			removeCommandNameFromBody: function removeCommandNameFromBody(body_, prefix_, commandName_) {
 				if ([body_, prefix_, commandName_].every(x => nullAndUndefined.includes(x)))
-					throw new Error("Please provide body, prefix and commandName to use this function, this function without parameters only support for onStart");
+					throw new Error("Please provide body, prefix and commandName to use this function, this function without parameters only support for x69xStart");
 				for (let i = 0; i < arguments.length; i++)
 					if (typeof arguments[i] != "string")
 						throw new Error(`The parameter "${i + 1}" must be a string, but got "${getType(arguments[i])}"`);
@@ -275,27 +250,22 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			+-----------------------------------------------+
 		*/
 		let isUserCallCommand = false;
-		async function onStart() {
-			// —————————————— CHECK USE BOT —————————————— //
+		async function x69xStart() {
 			if (!body || !body.startsWith(prefix))
 				return;
 			const dateNow = Date.now();
 			const args = body.slice(prefix.length).trim().split(/ +/);
-			// ————————————  CHECK HAS COMMAND ——————————— //
 			let commandName = args.shift().toLowerCase();
-			let command = GoatBot.commands.get(commandName) || GoatBot.commands.get(GoatBot.aliases.get(commandName));
-			// ———————— CHECK ALIASES SET BY GROUP ———————— //
+			let command = x69x.commands.get(commandName) || x69x.commands.get(x69x.aliases.get(commandName));
 			const aliasesData = threadData.data.aliases || {};
 			for (const cmdName in aliasesData) {
 				if (aliasesData[cmdName].includes(commandName)) {
-					command = GoatBot.commands.get(cmdName);
+					command = x69x.commands.get(cmdName);
 					break;
 				}
 			}
-			// ————————————— SET COMMAND NAME ————————————— //
 			if (command)
 				commandName = command.config.name;
-			// ——————— FUNCTION REMOVE COMMAND NAME ———————— //
 			function removeCommandNameFromBody(body_, prefix_, commandName_) {
 				if (arguments.length) {
 					if (typeof body_ != "string")
@@ -311,22 +281,17 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 					return body.replace(new RegExp(`^${prefix}(\\s+|)${commandName}`, "i"), "").trim();
 				}
 			}
-			// —————  CHECK BANNED OR ONLY ADMIN BOX  ————— //
 			if (isBannedOrOnlyAdmin(userData, threadData, senderID, threadID, isGroup, commandName, message, langCode))
 				return;
 			if (!command)
 				if (!hideNotiMessage.commandNotFound) {
-					// <------------------- NEW FUZZY MATCHING LOGIC STARTS HERE --------------------->
-					
-					const allCommands = Array.from(GoatBot.commands.keys());
+					const allCommands = Array.from(x69x.commands.keys());
 					let closestCommand = null;
 					let minDistance = 999;
-					const distanceThreshold = 2; // Allow up to 2 character differences
+					const distanceThreshold = 2;
 
-					// Check only if a command name was actually attempted (e.g., /halp, not just /)
 					if (commandName) {
 						for (const correctCommand of allCommands) {
-							// Check distance for the prefix-less command part
 							const distance = leven(commandName.toLowerCase(), correctCommand.toLowerCase());
 
 							if (distance < minDistance && distance <= distanceThreshold) {
@@ -337,42 +302,37 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 					}
 					
 					if (closestCommand) {
-						// Found a suggestion, use the new lang key
 						return await message.reply(
 							utils.getText({ lang: langCode, head: "handlerEvents" }, "commandNotFoundSuggestion", closestCommand, prefix)
 						);
 					} else {
-						// No suggestion or commandName was empty, fall back to original logic
 						return await message.reply(
 							commandName ?
 								utils.getText({ lang: langCode, head: "handlerEvents" }, "commandNotFound", commandName, prefix) :
 								utils.getText({ lang: langCode, head: "handlerEvents" }, "commandNotFound2", prefix)
 						);
 					}
-					// <------------------- NEW FUZZY MATCHING LOGIC ENDS HERE ----------------------->
 				}
 				else
 					return true;
-			// ————————————— CHECK PERMISSION ———————————— //
 			const roleConfig = getRoleConfig(utils, command, isGroup, threadData, commandName);
-			const needRole = roleConfig.onStart;
+			const needRole = roleConfig.x69xStart;
 
 			if (needRole > role) {
 				if (!hideNotiMessage.needRoleToUseCmd) {
-					if (needRole == 1) // Min Rank 1: Group Admin
+					if (needRole == 1)
 						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyAdmin", commandName));
-					else if (needRole == 2) // Min Rank 2: VIP User
+					else if (needRole == 2)
 						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyAdminBot2", commandName));
-					else if (needRole == 3) // Min Rank 3: AdminBot
-						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyVipUser", commandName)); // Re-purposing an existing key for Rank 3 min.
-					else if (needRole == 4) // Min Rank 4: Developer Only
-						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyDeveloper", commandName)); // Using the Developer key for Rank 4
+					else if (needRole == 3)
+						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyVipUser", commandName));
+					else if (needRole == 4)
+						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyDeveloper", commandName));
 				}
 				else {
 					return true;
 				}
 			}
-			// ———————————————— countDown ———————————————— //
 			if (!client.countDown[commandName])
 				client.countDown[commandName] = {};
 			const timestamps = client.countDown[commandName];
@@ -385,11 +345,9 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 				if (dateNow < expirationTime)
 					return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "waitingForCommand", ((expirationTime - dateNow) / 1000).toString().slice(0, 3)));
 			}
-			// ——————————————— RUN COMMAND ——————————————— //
 			const time = getTime("DD/MM/YYYY HH:mm:ss");
 			isUserCallCommand = true;
 			try {
-				// analytics command call
 				(async () => {
 					const analytics = await globalData.get("analytics", "data", {});
 					if (!analytics[commandName])
@@ -400,7 +358,7 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 
 				createMessageSyntaxError(commandName);
 				const getText2 = createGetText2(langCode, `${process.cwd()}/languages/cmds/${langCode}.js`, prefix, command);
-				await command.onStart({
+				await command.x69xStart({
 					...parameters,
 					args,
 					commandName,
@@ -416,24 +374,17 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			}
 		}
 
-
-		/*
-		 +------------------------------------------------+
-		 |                    ON CHAT                     |
-		 +------------------------------------------------+
-		*/
-		async function onChat() {
-			const allOnChat = GoatBot.onChat || [];
+		async function x69xChat() {
+			const allX69xChat = x69x.x69xChat || [];
 			const args = body ? body.split(/ +/) : [];
-			for (const key of allOnChat) {
-				const command = GoatBot.commands.get(key);
+			for (const key of allX69xChat) {
+				const command = x69x.commands.get(key);
 				if (!command)
 					continue;
 				const commandName = command.config.name;
 
-				// —————————————— CHECK PERMISSION —————————————— //
 				const roleConfig = getRoleConfig(utils, command, isGroup, threadData, commandName);
-				const needRole = roleConfig.onChat;
+				const needRole = roleConfig.x69xChat;
 				if (needRole > role)
 					continue;
 
@@ -441,15 +392,14 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 				const time = getTime("DD/MM/YYYY HH:mm:ss");
 				createMessageSyntaxError(commandName);
 
-				if (getType(command.onChat) == "Function") {
-					const defaultOnChat = command.onChat;
-					// convert to AsyncFunction
-					command.onChat = async function () {
-						return defaultOnChat(...arguments);
+				if (getType(command.x69xChat) == "Function") {
+					const defaultX69xChat = command.x69xChat;
+					command.x69xChat = async function () {
+						return defaultX69xChat(...arguments);
 					};
 				}
 
-				command.onChat({
+				command.x69xChat({
 					...parameters,
 					isUserCallCommand,
 					args,
@@ -462,7 +412,7 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 								return;
 							try {
 								await handler();
-								log.info("onChat", `${commandName} | ${userData.name} | ${senderID} | ${threadID} | ${args.join(" ")}`);
+								log.info("x69xChat", `${commandName} | ${userData.name} | ${senderID} | ${threadID} | ${args.join(" ")}`);
 							}
 							catch (err) {
 								await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "errorOccurred2", time, commandName, removeHomeDir(err.stack ? err.stack.split("\n").slice(0, 5).join("\n") : JSON.stringify(err, null, 2))));
@@ -470,19 +420,13 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 						}
 					})
 					.catch(err => {
-						log.err("onChat", `An error occurred when calling the command onChat ${commandName}`, err);
+						log.err("x69xChat", `An error occurred when calling the command x69xChat ${commandName}`, err);
 					});
 			}
 		}
 
-
-		/*
-		 +------------------------------------------------+
-		 |                   ON ANY EVENT                 |
-		 +------------------------------------------------+
-		*/
 		async function onAnyEvent() {
-			const allOnAnyEvent = GoatBot.onAnyEvent || [];
+			const allOnAnyEvent = x69x.onAnyEvent || [];
 			let args = [];
 			if (typeof event.body == "string" && event.body.startsWith(prefix))
 				args = event.body.split(/ +/);
@@ -490,7 +434,7 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			for (const key of allOnAnyEvent) {
 				if (typeof key !== "string")
 					continue;
-				const command = GoatBot.commands.get(key);
+				const command = x69x.commands.get(key);
 				if (!command)
 					continue;
 				const commandName = command.config.name;
@@ -501,7 +445,6 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 
 				if (getType(command.onAnyEvent) == "Function") {
 					const defaultOnAnyEvent = command.onAnyEvent;
-					// convert to AsyncFunction
 					command.onAnyEvent = async function () {
 						return defaultOnAnyEvent(...arguments);
 					};
@@ -531,20 +474,15 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			}
 		}
 
-		/*
-		 +------------------------------------------------+
-		 |                  ON FIRST CHAT                 |
-		 +------------------------------------------------+
-		*/
 		async function onFirstChat() {
-			const allOnFirstChat = GoatBot.onFirstChat || [];
+			const allOnFirstChat = x69x.onFirstChat || [];
 			const args = body ? body.split(/ +/) : [];
 
 			for (const itemOnFirstChat of allOnFirstChat) {
 				const { commandName, threadIDsChattedFirstTime } = itemOnFirstChat;
 				if (threadIDsChattedFirstTime.includes(threadID))
 					continue;
-				const command = GoatBot.commands.get(commandName);
+				const command = x69x.commands.get(commandName);
 				if (!command)
 					continue;
 
@@ -555,7 +493,6 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 
 				if (getType(command.onFirstChat) == "Function") {
 					const defaultOnFirstChat = command.onFirstChat;
-					// convert to AsyncFunction
 					command.onFirstChat = async function () {
 						return defaultOnFirstChat(...arguments);
 					};
@@ -587,43 +524,37 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			}
 		}
 
-
-		/* +------------------------------------------------+
-		 |                    ON REPLY                    |
-		 +------------------------------------------------+
-		*/
-		async function onReply() {
+		async function x69xReply() {
 			if (!event.messageReply)
 				return;
-			const { onReply } = GoatBot;
-			const Reply = onReply.get(event.messageReply.messageID);
+			const { x69xReply: x69xReplyMap } = x69x;
+			const Reply = x69xReplyMap.get(event.messageReply.messageID);
 			if (!Reply)
 				return;
-			Reply.delete = () => onReply.delete(messageID);
+			Reply.delete = () => x69xReplyMap.delete(messageID);
 			const commandName = Reply.commandName;
 			if (!commandName) {
 				message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "cannotFindCommandName"));
-				return log.err("onReply", `Can't find command name to execute this reply!`, Reply);
+				return log.err("x69xReply", `Can't find command name to execute this reply!`, Reply);
 			}
-			const command = GoatBot.commands.get(commandName);
+			const command = x69x.commands.get(commandName);
 			if (!command) {
 				message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "cannotFindCommand", commandName));
-				return log.err("onReply", `Command "${commandName}" not found`, Reply);
+				return log.err("x69xReply", `Command "${commandName}" not found`, Reply);
 			}
 
-			// —————————————— CHECK PERMISSION —————————————— //
 			const roleConfig = getRoleConfig(utils, command, isGroup, threadData, commandName);
-			const needRole = roleConfig.onReply;
+			const needRole = roleConfig.x69xReply;
 			if (needRole > role) {
 				if (!hideNotiMessage.needRoleToUseCmdOnReply) {
-					if (needRole == 1) // Min Rank 1: Group Admin
+					if (needRole == 1)
 						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyAdminToUseOnReply", commandName));
-					else if (needRole == 2) // Min Rank 2: VIP User
+					else if (needRole == 2)
 						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyAdminBot2ToUseOnReply", commandName));
-					else if (needRole == 3) // Min Rank 3: AdminBot
-						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyVipUserToUseOnReply", commandName)); // Re-purposing an existing key for Rank 3 min.
-					else if (needRole == 4) // Min Rank 4: Developer Only
-						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyDeveloperToUseOnReply", commandName)); // Using the Developer key for Rank 4
+					else if (needRole == 3)
+						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyVipUserToUseOnReply", commandName));
+					else if (needRole == 4)
+						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyDeveloperToUseOnReply", commandName));
 				}
 				else {
 					return true;
@@ -639,29 +570,23 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 				createMessageSyntaxError(commandName);
 				if (isBannedOrOnlyAdmin(userData, threadData, senderID, threadID, isGroup, commandName, message, langCode))
 					return;
-				await command.onReply({
+				await command.x69xReply({
 					...parameters,
 					Reply,
 					args,
 					commandName,
 					getLang: getText2
 				});
-				log.info("onReply", `${commandName} | ${userData.name} | ${senderID} | ${threadID} | ${args.join(" ")}`);
+				log.info("x69xReply", `${commandName} | ${userData.name} | ${senderID} | ${threadID} | ${args.join(" ")}`);
 			}
 			catch (err) {
-				log.err("onReply", `An error occurred when calling the command onReply ${commandName}`, err);
+				log.err("x69xReply", `An error occurred when calling the command x69xReply ${commandName}`, err);
 				await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "errorOccurred3", time, commandName, removeHomeDir(err.stack ? err.stack.split("\n").slice(0, 5).join("\n") : JSON.stringify(err, null, 2))));
 			}
 		}
 
-
-		/*
-		 +------------------------------------------------+
-		 |                   ON REACTION                  |
-		 +------------------------------------------------+
-		*/
 		async function onReaction() {
-			const { onReaction } = GoatBot;
+			const { onReaction } = x69x;
 			const Reaction = onReaction.get(messageID);
 			if (!Reaction)
 				return;
@@ -671,31 +596,29 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 				message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "cannotFindCommandName"));
 				return log.err("onReaction", `Can't find command name to execute this reaction!`, Reaction);
 			}
-			const command = GoatBot.commands.get(commandName);
+			const command = x69x.commands.get(commandName);
 			if (!command) {
 				message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "cannotFindCommand", commandName));
 				return log.err("onReaction", `Command "${commandName}" not found`, Reaction);
 			}
 
-			// —————————————— CHECK PERMISSION —————————————— //
 			const roleConfig = getRoleConfig(utils, command, isGroup, threadData, commandName);
 			const needRole = roleConfig.onReaction;
 			if (needRole > role) {
 				if (!hideNotiMessage.needRoleToUseCmdOnReaction) {
-					if (needRole == 1) // Min Rank 1: Group Admin
+					if (needRole == 1)
 						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyAdminToUseOnReaction", commandName));
-					else if (needRole == 2) // Min Rank 2: VIP User
+					else if (needRole == 2)
 						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyAdminBot2ToUseOnReaction", commandName));
-					else if (needRole == 3) // Min Rank 3: AdminBot
-						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyVipUserToUseOnReaction", commandName)); // Re-purposing an existing key for Rank 3 min.
-					else if (needRole == 4) // Min Rank 4: Developer Only
-						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyDeveloperToUseOnReaction", commandName)); // Using the Developer key for Rank 4
+					else if (needRole == 3)
+						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyVipUserToUseOnReaction", commandName));
+					else if (needRole == 4)
+						return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyDeveloperToUseOnReaction", commandName));
 				}
 				else {
 					return true;
 				}
 			}
-			// —————————————————————————————————————————————— //
 
 			const time = getTime("DD/MM/YYYY HH:mm:ss");
 			try {
@@ -721,24 +644,18 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			}
 		}
 
-
-		/*
-		 +------------------------------------------------+
-		 |                 EVENT COMMAND                  |
-		 +------------------------------------------------+
-		*/
 		async function handlerEvent() {
 			const { author } = event;
-			const allEventCommand = GoatBot.eventCommands.entries();
+			const allEventCommand = x69x.eventCommands.entries();
 			for (const [key] of allEventCommand) {
-				const getEvent = GoatBot.eventCommands.get(key);
+				const getEvent = x69x.eventCommands.get(key);
 				if (!getEvent)
 					continue;
 				const commandName = getEvent.config.name;
 				const getText2 = createGetText2(langCode, `${process.cwd()}/languages/events/${langCode}.js`, prefix, getEvent);
 				const time = getTime("DD/MM/YYYY HH:mm:ss");
 				try {
-					const handler = await getEvent.onStart({
+					const handler = await getEvent.x69xStart({
 						...parameters,
 						commandName,
 						getLang: getText2
@@ -755,20 +672,14 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			}
 		}
 
-
-		/*
-		 +------------------------------------------------+
-		 |                    ON EVENT                    |
-		 +------------------------------------------------+
-		*/
 		async function onEvent() {
-			const allOnEvent = GoatBot.onEvent || [];
+			const allOnEvent = x69x.onEvent || [];
 			const args = [];
 			const { author } = event;
 			for (const key of allOnEvent) {
 				if (typeof key !== "string")
 					continue;
-				const command = GoatBot.commands.get(key);
+				const command = x69x.commands.get(key);
 				if (!command)
 					continue;
 				const commandName = command.config.name;
@@ -779,7 +690,6 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 
 				if (getType(command.onEvent) == "Function") {
 					const defaultOnEvent = command.onEvent;
-					// convert to AsyncFunction
 					command.onEvent = async function () {
 						return defaultOnEvent(...arguments);
 					};
@@ -809,29 +719,14 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			}
 		}
 
-		/*
-		 +------------------------------------------------+
-		 |                    PRESENCE                    |
-		 +------------------------------------------------+
-		*/
 		async function presence() {
 			// Your code here
 		}
 
-		/*
-		 +------------------------------------------------+
-		 |                  READ RECEIPT                  |
-		 +------------------------------------------------+
-		*/
 		async function read_receipt() {
 			// Your code here
 		}
 
-		/*
-		 +------------------------------------------------+
-		 |                   		 TYP                    	|
-		 +------------------------------------------------+
-		*/
 		async function typ() {
 			// Your code here
 		}
@@ -839,10 +734,10 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 		return {
 			onAnyEvent,
 			onFirstChat,
-			onChat,
-			onStart,
+			x69xChat,
+			x69xStart,
 			onReaction,
-			onReply,
+			x69xReply,
 			onEvent,
 			handlerEvent,
 			presence,
