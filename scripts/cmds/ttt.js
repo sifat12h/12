@@ -206,10 +206,15 @@ function resetTimer(gameId, message) {
 // 📊 Score Tracking (Will save to userData.js)
 async function updateScore(usersData, playerId, result) {
   try {
-    // Load current user data
-    const userData = await usersData.get(playerId);
+    // Load current user data using a different approach
+    let userData;
+    try {
+      userData = await usersData.get(playerId) || {};
+    } catch (e) {
+      userData = {};
+    }
     
-    // If Tic Tac Toe score doesn't exist, create it
+    // Initialize ttt data if it doesn't exist
     if (!userData.ttt) {
       userData.ttt = {
         wins: 0,
@@ -218,54 +223,67 @@ async function updateScore(usersData, playerId, result) {
         totalGames: 0,
         winStreak: 0,
         maxWinStreak: 0,
-        points: 0
+        points: 0,
+        winRate: 0
       };
     }
     
-    // Create a copy to avoid const reassignment issues
-    const updatedTTT = { ...userData.ttt };
+    // Create a NEW object instead of modifying the existing one
+    const newTTT = {
+      wins: userData.ttt.wins || 0,
+      losses: userData.ttt.losses || 0,
+      draws: userData.ttt.draws || 0,
+      totalGames: userData.ttt.totalGames || 0,
+      winStreak: userData.ttt.winStreak || 0,
+      maxWinStreak: userData.ttt.maxWinStreak || 0,
+      points: userData.ttt.points || 0,
+      winRate: userData.ttt.winRate || 0
+    };
     
-    // Update score
+    // Update score based on result
     if (result === "win") {
-      updatedTTT.wins++;
-      updatedTTT.winStreak++;
-      updatedTTT.points += 10; // 10 points for win
-      if (updatedTTT.winStreak > updatedTTT.maxWinStreak) {
-        updatedTTT.maxWinStreak = updatedTTT.winStreak;
+      newTTT.wins++;
+      newTTT.winStreak++;
+      newTTT.points += 10;
+      if (newTTT.winStreak > newTTT.maxWinStreak) {
+        newTTT.maxWinStreak = newTTT.winStreak;
       }
     } else if (result === "loss") {
-      updatedTTT.losses++;
-      updatedTTT.winStreak = 0; // Reset streak on loss
-      updatedTTT.points += 1; // 1 point for loss
+      newTTT.losses++;
+      newTTT.winStreak = 0;
+      newTTT.points += 1;
     } else if (result === "draw") {
-      updatedTTT.draws++;
-      updatedTTT.winStreak = 0; // Reset streak on draw
-      updatedTTT.points += 5; // 5 points for draw
+      newTTT.draws++;
+      newTTT.winStreak = 0;
+      newTTT.points += 5;
     }
     
-    // Total game count
-    updatedTTT.totalGames = updatedTTT.wins + updatedTTT.losses + updatedTTT.draws;
-    
-    // Calculate winRate
-    updatedTTT.winRate = updatedTTT.totalGames > 0 
-      ? Math.round((updatedTTT.wins / updatedTTT.totalGames) * 100) 
+    // Calculate totals
+    newTTT.totalGames = newTTT.wins + newTTT.losses + newTTT.draws;
+    newTTT.winRate = newTTT.totalGames > 0 
+      ? Math.round((newTTT.wins / newTTT.totalGames) * 100) 
       : 0;
     
-    // Update the userData object
-    userData.ttt = updatedTTT;
+    // Create a completely new userData object
+    const newUserData = {
+      ...userData,
+      ttt: newTTT
+    };
     
-    // Save updated data
-    await usersData.set(playerId, userData);
+    // Save using usersData.set
+    await usersData.set(playerId, newUserData);
     
+    return true;
   } catch (error) {
     console.error("Error updating score in userData:", error);
+    return false;
   }
 }
 
 // 📈 Get Score Function
 async function getScore(usersData, playerId) {
   try {
-    const userData = await usersData.get(playerId);
+    const userData = await usersData.get(playerId) || {};
     
     // If Tic Tac Toe data doesn't exist
     if (!userData.ttt) {
@@ -301,7 +319,7 @@ module.exports = {
   config: {
     name: "ttt",
     aliases: ["tictactoe", "xoxo", "tttgame"],
-    version: "4.5",
+    version: "4.6",
     author: "Azadx69x",
     countDown: 5,
     role: 0,
@@ -316,23 +334,28 @@ module.exports = {
   onStart: async function ({ message, event, usersData, args }) {
     // Score check option
     if (args[0] === "score" || args[0] === "rank") {
-      const playerId = event.senderID;
-      const playerName = await usersData.getName(playerId);
-      const score = await getScore(usersData, playerId);
-      
-      let scoreMsg = `🏆 ${playerName}'s Tic Tac Toe Score:\n`;
-      scoreMsg += "━━━━━━━━━━━━━━━━━━\n\n";
-      scoreMsg += `✅ Wins: ${score.wins}\n`;
-      scoreMsg += `❌ Losses: ${score.losses}\n`;
-      scoreMsg += `🤝 Draws: ${score.draws}\n`;
-      scoreMsg += `📊 Total Games: ${score.totalGames}\n`;
-      scoreMsg += `⭐ Points: ${score.points}\n\n`;
-      scoreMsg += `🎯 Win Rate: ${score.winRate}%\n`;
-      scoreMsg += `🔥 Current Streak: ${score.winStreak} wins\n`;
-      scoreMsg += `⚡ Max Streak: ${score.maxWinStreak} wins\n`;
-      scoreMsg += "\n━━━━━━━━━━━━━━━━━━";
-      
-      return message.reply(scoreMsg);
+      try {
+        const playerId = event.senderID;
+        const playerName = await usersData.getName(playerId);
+        const score = await getScore(usersData, playerId);
+        
+        let scoreMsg = `🏆 ${playerName}'s Tic Tac Toe Score:\n`;
+        scoreMsg += "━━━━━━━━━━━━━━━━━━\n\n";
+        scoreMsg += `✅ Wins: ${score.wins}\n`;
+        scoreMsg += `❌ Losses: ${score.losses}\n`;
+        scoreMsg += `🤝 Draws: ${score.draws}\n`;
+        scoreMsg += `📊 Total Games: ${score.totalGames}\n`;
+        scoreMsg += `⭐ Points: ${score.points}\n\n`;
+        scoreMsg += `🎯 Win Rate: ${score.winRate}%\n`;
+        scoreMsg += `🔥 Current Streak: ${score.winStreak} wins\n`;
+        scoreMsg += `⚡ Max Streak: ${score.maxWinStreak} wins\n`;
+        scoreMsg += "\n━━━━━━━━━━━━━━━━━━";
+        
+        return message.reply(scoreMsg);
+      } catch (error) {
+        console.error("Error showing score:", error);
+        return message.reply("❌ Error loading score data.");
+      }
     }
     
     // Leaderboard display
@@ -343,8 +366,9 @@ module.exports = {
         const leaderboard = [];
         
         // Check TTT score for each user
-        for (const [userId, userData] of allUsersData) {
-          if (userData.ttt && userData.ttt.totalGames > 0) {
+        for (const userId in allUsersData) {
+          const userData = allUsersData[userId];
+          if (userData && userData.ttt && userData.ttt.totalGames > 0) {
             leaderboard.push({
               userId,
               name: userData.name || "Unknown",
@@ -356,7 +380,7 @@ module.exports = {
           }
         }
         
-        // Sort by points (you can change to winRate if preferred)
+        // Sort by points
         leaderboard.sort((a, b) => b.points - a.points);
         
         let leaderboardMsg = "🏆 Tic Tac Toe Leaderboard:\n";
@@ -460,7 +484,9 @@ module.exports = {
 
     } catch (error) {
       console.error("Error creating game:", error);
-      delete games[gameId];
+      if (games[gameId]) {
+        delete games[gameId];
+      }
       message.reply("❌ Error creating game. Please try again.");
     }
   },
