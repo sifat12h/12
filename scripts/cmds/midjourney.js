@@ -2,18 +2,18 @@ const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
 
-const baseApi = "https://azadx69x-all-apis-top.vercel.app/api/flux";
+const baseApi = "https://azadx69x-all-apis-top.vercel.app/api/mj";
 
 module.exports = {
   config: {
-    name: "flux",
-    aliases: ["fx"],
+    name: "midjourney",
+    aliases: ["mj"],
     version: "0.0.9",
     role: 0,
     author: "Azadx69x",
     category: "ai",
     cooldowns: 5,
-    guide: { en: "Generate Flux AI image using a prompt" }
+    guide: { en: "Generate midjourney image using a prompt" }
   },
 
   onStart: async ({ api, event, args }) => {
@@ -47,7 +47,7 @@ module.exports = {
       
       const messageBody = `
 ╭─────────────────────╮
-│ 🎨 𝙁𝙡𝙪𝙭 𝙎𝙩𝙮𝙡𝙚 𝙄𝙢𝙖𝙜𝙚 𝙂𝙚𝙣𝙚𝙧𝙖𝙩𝙤𝙧
+│ 🎨 𝙈𝙞𝙙𝙟𝙤𝙪𝙧𝙣𝙚𝙮 𝙄𝙢𝙖𝙜𝙚 𝙂𝙚𝙣𝙚𝙧𝙖𝙩𝙤𝙧
 ╰─────────────────────╯
 
 📝 𝐏𝐫𝐨𝐦𝐩𝐭 :
