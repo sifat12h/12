@@ -47,6 +47,11 @@ const headers = {
 let request = require("request").defaults({
   jar: true
 });
+
+// getJar function for creating new cookie jars
+function getJar() {
+  return request.jar();
+}
 const stream = require("stream");
 const querystring = require("querystring");
 const url = require("url");
@@ -1373,7 +1378,81 @@ function getAccessFromBusiness(jar, Options) {
   }
 }
 
+// Logout function - fixes logout problem
+function logout(jar, ctx, callback) {
+  return new Promise(function(resolve, reject) {
+    try {
+      // Clear all cookies from facebook and messenger domains
+      const fbCookies = jar.getCookies("https://www.facebook.com");
+      const msCookies = jar.getCookies("https://www.messenger.com");
+      
+      fbCookies.forEach(function(cookie) {
+        jar.setCookie(cookie + "; Expires=Thu, 01 Jan 1970 00:00:00 GMT", "https://www.facebook.com");
+      });
+      
+      msCookies.forEach(function(cookie) {
+        jar.setCookie(cookie + "; Expires=Thu, 01 Jan 1970 00:00:00 GMT", "https://www.messenger.com");
+      });
+
+      // Clear context if provided
+      if (ctx) {
+        ctx.fb_dtsg = null;
+        ctx.ttstamp = null;
+        ctx.jazoest = null;
+      }
+
+      const result = {
+        success: true,
+        message: "Logged out successfully"
+      };
+
+      if (callback) {
+        callback(null, result);
+      }
+      resolve(result);
+    } catch (err) {
+      const error = {
+        error: "Logout failed",
+        detail: err.message
+      };
+      if (callback) {
+        callback(error, null);
+      }
+      reject(error);
+    }
+  });
+}
+
+// Clear all session data
+function clearSession(jar, ctx) {
+  if (jar) {
+    const fbCookies = jar.getCookies("https://www.facebook.com");
+    const msCookies = jar.getCookies("https://www.messenger.com");
+    
+    fbCookies.forEach(function(cookie) {
+      jar.setCookie(cookie + "; Expires=Thu, 01 Jan 1970 00:00:00 GMT", "https://www.facebook.com");
+    });
+    
+    msCookies.forEach(function(cookie) {
+      jar.setCookie(cookie + "; Expires=Thu, 01 Jan 1970 00:00:00 GMT", "https://www.messenger.com");
+    });
+  }
+  
+  if (ctx) {
+    ctx.fb_dtsg = null;
+    ctx.ttstamp = null;
+    ctx.jazoest = null;
+    ctx.userID = null;
+  }
+  
+  return {
+    success: true,
+    message: "Session cleared"
+  };
+}
+
 const meta = prop => new RegExp(`<meta property="${prop}" content="([^"]*)"`);
+
 module.exports = {
   //logs
   log(...args) {
@@ -1398,7 +1477,7 @@ module.exports = {
   makeParsable,
   arrToForm,
   getSignatureID,
-  getJar: request.jar,
+  getJar,
   generateTimestampRelative,
   makeDefaults,
   parseAndCheckLogin,
@@ -1432,5 +1511,8 @@ module.exports = {
   defaultUserAgent,
   windowsUserAgent,
   randomUserAgent,
-  meta
+  meta,
+  // Logout fixes
+  logout,
+  clearSession
 };
