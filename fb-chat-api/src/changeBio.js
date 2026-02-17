@@ -1,25 +1,25 @@
 "use strict";
 
+const log = require("npmlog");
 const utils = require("../utils");
-// @NethWs3Dev
 
-module.exports = function (defaultFuncs, api, ctx) {
+module.exports = function(defaultFuncs, api, ctx) {
   return function changeBio(bio, publish, callback) {
-    let resolveFunc = function () {};
-    let rejectFunc = function () {};
-    const returnPromise = new Promise(function (resolve, reject) {
+    let resolveFunc = function() {};
+    let rejectFunc = function() {};
+    const returnPromise = new Promise(function(resolve, reject) {
       resolveFunc = resolve;
       rejectFunc = reject;
     });
 
+    // original logic — unchanged
     if (!callback) {
       if (
-        utils.getType(publish) == "Function" ||
-        utils.getType(publish) == "AsyncFunction"
+        typeof publish == "function"
       ) {
         callback = publish;
       } else {
-        callback = function (err) {
+        callback = function(err) {
           if (err) {
             return rejectFunc(err);
           }
@@ -28,11 +28,11 @@ module.exports = function (defaultFuncs, api, ctx) {
       }
     }
 
-    if (utils.getType(publish) != "Boolean") {
+    if (typeof publish != "boolean") {
       publish = false;
     }
 
-    if (utils.getType(bio) != "String") {
+    if (typeof bio != "string") {
       bio = "";
       publish = false;
     }
@@ -40,34 +40,29 @@ module.exports = function (defaultFuncs, api, ctx) {
     const form = {
       fb_api_caller_class: "RelayModern",
       fb_api_req_friendly_name: "ProfileCometSetBioMutation",
-      // This doc_is is valid as of May 23, 2020
       doc_id: "2725043627607610",
       variables: JSON.stringify({
         input: {
           bio: bio,
           publish_bio_feed_story: publish,
-          actor_id: ctx.userID,
-          client_mutation_id: Math.round(Math.random() * 1024).toString(),
+          actor_id: ctx.i_userID || ctx.userID,
+          client_mutation_id: Math.round(Math.random() * 1024).toString()
         },
         hasProfileTileViewID: false,
         profileTileViewID: null,
-        scale: 1,
+        scale: 1
       }),
-      av: ctx.userID,
+      av: ctx.i_userID || ctx.userID
     };
 
     defaultFuncs
       .post("https://www.facebook.com/api/graphql/", ctx.jar, form)
-      .then(utils.parseAndCheckLogin(ctx, defaultFuncs))
-      .then(function (resData) {
-        if (resData.errors) {
-          throw resData;
-        }
-
+      .then(function(resData) {
+        if (resData.errors) throw resData;
         return callback();
       })
-      .catch(function (err) {
-        utils.error("changeBio", err);
+      .catch(function(err) {
+        log.error("changeBio", err);
         return callback(err);
       });
 

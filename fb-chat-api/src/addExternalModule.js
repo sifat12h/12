@@ -1,24 +1,24 @@
 "use strict";
 
-const utils = require("../utils");
+const { getType } = require("../utils");
 
-module.exports = function (defaultFuncs, api, ctx) {
+module.exports = function(defaultFuncs, api, ctx) {
   return function addExternalModule(moduleObj) {
-    if (utils.getType(moduleObj) == "Object") {
+    if (getType(moduleObj) == "Object") {
       for (const apiName in moduleObj) {
-        if (utils.getType(moduleObj[apiName]) == "Function") {
+        if (getType(moduleObj[apiName]) == "Function") {
           api[apiName] = moduleObj[apiName](defaultFuncs, api, ctx);
         } else {
           throw new Error(
-            `Item "${apiName}" in moduleObj must be a function, not ${utils.getType(
-              moduleObj[apiName],
-            )}!`,
+            `Item "${apiName}" in moduleObj must be a function, not ${getType(
+              moduleObj[apiName]
+            )}!`
           );
         }
       }
     } else {
       throw new Error(
-        `moduleObj must be an object, not ${utils.getType(moduleObj)}!`,
+        `moduleObj must be an object, not ${getType(moduleObj)}!`
       );
     }
   };
