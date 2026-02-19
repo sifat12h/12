@@ -25,9 +25,9 @@
     "ignoreCommand": []
   },
   "adminBot": [
-    "",
-    "",
-    "61585772322631"
+    "100082818112367",
+    "61580068018277",
+    ""
   ],
   "developer": [
     "",
@@ -40,16 +40,16 @@
     "61585772322631"
   ],
   "reactBy": {
-    "delete": ["🗑️", "❌", "😠", "😡", "😾"],
-    "kick": ["🖕", "🦵"]
+    "delete": ["🗑️", "❌", "😠", "🫠", "😾"],
+    "kick": ["💢", "🦵"]
   }, 
   "whiteListMode": {
     "enable": false,
     "whiteListIds": [],
     "notes": "if you enable this feature, only the ids in the whiteListIds section can use the bot"
   },
-  "nickNameBot": "X69X BOT V2",
-  "prefix": ")",
+  "nickNameBot": "Your baby [,]",
+  "prefix": ",",
   "database": {
     "type": "sqlite",
     "uriMongodb": "",
