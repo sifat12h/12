@@ -2,135 +2,92 @@ const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
 
-const API_JSON_URL = "https://azadx69x-all-apis-top.vercel.app/api/alldl?url=";
-
-function detectPlatform(url) {
-  if (url.includes("tiktok.com")) return "𝙏𝙞𝙠𝙏𝙤𝙠";
-  if (url.includes("facebook.com") || url.includes("fb.watch")) return "𝙁𝙖𝙘𝙚𝙗𝙤𝙤𝙠";
-  if (url.includes("instagram.com")) return "𝙄𝙣𝙨𝙩𝙖𝙜𝙧𝙖𝙢";
-  if (url.includes("youtube.com") || url.includes("youtu.be")) return "𝙔𝙤𝙪𝙏𝙪𝙗𝙚";
-  if (url.includes("x.com") || url.includes("twitter.com")) return "𝙏𝙬𝙞𝙩𝙩𝙚𝙧 / 𝙓";
-  if (url.includes("pin.it") || url.includes("pinterest.com")) return "𝙋𝙞𝙣𝙩𝙚𝙧𝙚𝙨𝙩";
-  return "𝙐𝙣𝙠𝙣𝙤𝙬𝙣";
-}
-
-async function fetchDataWithRetry(url, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const res = await axios.get(url, { timeout: 30000 });
-      return res.data;
-    } catch (err) {
-      if (i === retries - 1) throw err;
-    }
-  }
-}
-
-function extractMedia(result) {
-  if (result.medias && result.medias.length) {
-    return result.medias.find(m => m.quality === "hd") || result.medias[0];
-  }
-  
-  if (result.video) {
-    return { url: result.video };
-  }
-  
-  if (result.download) {
-    return { url: result.download };
-  }
-  
-  if (typeof result.result === "string" && result.result.startsWith("http")) {
-    return { url: result.result };
-  }
-  
-  if (result.images && result.images.length) {
-    return { url: result.images[0], type: "image" };
-  }
-  if (result.gallery && result.gallery.length) {
-    return { url: result.gallery[0], type: "image" };
-  }
-
-  return null;
-}
+const supportedDomains = [
+  "facebook.com", "fb.watch",
+  "youtube.com", "youtu.be",
+  "tiktok.com",
+  "instagram.com", "instagr.am",
+  "likee.com", "likee.video",
+  "capcut.com",
+  "spotify.com",
+  "terabox.com",
+  "twitter.com", "x.com",
+  "drive.google.com",
+  "soundcloud.com",
+  "ndown.app",
+  "pinterest.com", "pin.it"
+];
 
 module.exports = {
   config: {
     name: "autodl",
-    version: "0.0.7",
-    author: "Azadx69x",
+    version: "2.0",
+    author: "Saimx69x",
     role: 0,
-    category: "media",
-    description: {
-      en: "Auto downloads videos/from TikTok, Facebook, Instagram, YouTube, X/etc."
-    },
-    guide: { en: "[video_link]" }
+    shortDescription: "All-in-one video/media downloader",
+    longDescription:
+      "Automatically downloads videos or media from Facebook, YouTube, TikTok, Instagram, Likee, CapCut, Spotify, Terabox, Twitter, Google Drive, SoundCloud, NDown, Pinterest, and more.",
+    category: "utility",
+    guide: { en: "Just send any supported media link (https://) to auto-download." }
   },
 
-  onStart: async () => {},
+  onStart: async function({ api, event }) {
+    api.sendMessage(
+      "📥 Send a video/media link (https://) from any supported site (YouTube, Facebook, TikTok, Instagram, Likee, CapCut, Spotify, Terabox, Twitter, Google Drive, SoundCloud, NDown, Pinterest, etc.) to auto-download.",
+      event.threadID,
+      event.messageID
+    );
+  },
 
-  onChat: async function ({ api, event }) {
-    const text = event.body || "";
+  onChat: async function({ api, event }) {
+    const content = event.body ? event.body.trim() : "";
+    if (content.toLowerCase().startsWith("auto")) return;
+    if (!content.startsWith("https://")) return;
+    if (!supportedDomains.some(domain => content.includes(domain))) return;
 
-    const SUPPORTED = [
-      "tiktok.com",
-      "facebook.com",
-      "fb.watch",
-      "instagram.com",
-      "youtu.be",
-      "youtube.com",
-      "x.com",
-      "twitter.com",
-      "pin.it",
-      "pinterest.com"
-    ];
-
-    if (!SUPPORTED.some(link => text.includes(link))) return;
-
-    api.setMessageReaction("⏳", event.messageID, () => {}, true);
-    const startTime = Date.now();
+    api.setMessageReaction("⌛️", event.messageID, event.threadID, () => {}, true);
 
     try {
-      const cacheDir = path.join(__dirname, "cache");
-      await fs.ensureDir(cacheDir);
-      const filePath = path.join(cacheDir, `autodl_${Date.now()}.mp4`);
-      
-      const data = await fetchDataWithRetry(API_JSON_URL + encodeURIComponent(text));
+      const API = `https://xsaim8x-xxx-api.onrender.com/api/auto?url=${encodeURIComponent(content)}`;
+      const res = await axios.get(API);
 
-      if (!data?.result) throw new Error("API returned empty result");
-      
-      const media = extractMedia(data.result);
-      if (!media || !media.url) throw new Error("API did not return any downloadable media");
+      if (!res.data) throw new Error("No response from API");
 
-      const downloadUrl = media.url;
-      
-      const buffer = (await axios.get(downloadUrl, { responseType: "arraybuffer", timeout: 60000 })).data;
-      await fs.writeFile(filePath, Buffer.from(buffer));
+      const mediaURL = res.data.high_quality || res.data.low_quality;
+      const mediaTitle = res.data.title || "Unknown Title";
+      if (!mediaURL) throw new Error("Media not found");
 
-      api.setMessageReaction("✅", event.messageID, () => {}, true);
+      const extension = mediaURL.includes(".mp3") ? "mp3" : "mp4";
+      const buffer = (await axios.get(mediaURL, { responseType: "arraybuffer" })).data;
+      const filePath = path.join(__dirname, "cache", `auto_media_${Date.now()}.${extension}`);
+
+      await fs.ensureDir(path.dirname(filePath));
+      fs.writeFileSync(filePath, Buffer.from(buffer));
+
+      api.setMessageReaction("✅️", event.messageID, event.threadID, () => {}, true);
       
-      const fileSizeMB = (buffer.length / (1024 * 1024)).toFixed(2);
-      const speed = ((Date.now() - startTime) / 1000).toFixed(2);
-      const platform = detectPlatform(text);
-      
-      const msg = `
-╭━〔 ✅ 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞 〕━╮
-┃ 📊 𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦  : ${platform}
-┃ 📦 𝐅𝐢𝐥𝐞 𝐒𝐢𝐳𝐞 : ${fileSizeMB} MB
-┃ ⚡ 𝐒𝐩𝐞𝐞𝐝     : ${speed}s
-╰━━━━━━━━━━━━━━━━━━╯
-👀 𝐌𝐚𝐝𝐞 𝐛𝐲 𝐀𝐳𝐚𝐝𝐱69x
-`;
-      
+      const domain = supportedDomains.find(d => content.includes(d)) || "Unknown Platform";
+      const platformName = domain.replace(/(\.com|\.app|\.video|\.net)/, "").toUpperCase();
+
+      const infoCard = 
+`━━━━━━━━━━━━━━
+𝐌𝐞𝐝𝐢𝐚 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐝 ✅
+╭─╼━━━━━━━━╾─╮
+│ Title      : ${mediaTitle}
+│ Platform   : ${platformName}
+│ Status     : Success
+╰─━━━━━━━━━╾─╯
+━━━━━━━━━━━━━━
+Made with 🐦 by ꫝ𝙻𝚙𝙷𝚊 𝚂ꫝ𝙳𝙸𝙺`;
+
       api.sendMessage(
-        { body: msg, attachment: fs.createReadStream(filePath) },
+        { body: infoCard, attachment: fs.createReadStream(filePath) },
         event.threadID,
         () => fs.unlinkSync(filePath),
         event.messageID
       );
-
-    } catch (err) {
-      console.error(err);
-      api.setMessageReaction("❌", event.messageID, () => {}, true);
-      api.sendMessage(`❌ Error: ${err.message}`, event.threadID, event.messageID);
+    } catch {
+      api.setMessageReaction("❌️", event.messageID, event.threadID, () => {}, true);
     }
   }
 };
